@@ -1,0 +1,35 @@
+name: Test
+
+on: [pull_request]
+
+jobs:
+  compile-and-format:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - run: sudo apt-get install -y clang-tidy clang-format bear
+      - run: bear -- make
+      - run: git diff -U0 HEAD^ | clang-tidy-diff -checks="bugprone-*,readability-*,portability-*,performance-*,modernize-*,clang-analyzer-*,misc-*,-modernize-use-trailing-return-type" -p1 -export-fixes report.yml
+      - uses: platisd/clang-tidy-pr-comments@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          clang_tidy_fixes: report.yml
+      - run: clang-format --dry-run --Werror heapfile.C
+      - uses: actions/cache@v3
+        with:
+          path: testfile
+          key: testfile-${{ github.run_id }}
+
+  testfile:
+    runs-on: ubuntu-22.04
+    needs: compile-and-format
+    steps:
+      - uses: actions/cache@v3
+        with:
+          path: testfile
+          key: testfile-${{ github.run_id }}
+      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
+      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
+      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
