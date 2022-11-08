@@ -15,6 +15,7 @@ const Status createHeapFile(const string fileName)
     status = db.openFile(fileName, file);
     if (status != OK)
     {
+        int abc = 123;
         // file doesn't exist. First create it and allocate
         // an empty header page and data page.
     }
