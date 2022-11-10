@@ -30,6 +30,6 @@ jobs:
         with:
           path: testfile
           key: testfile-${{ github.run_id }}
-      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
-      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
-      - run: "! ./testfile | tee /dev/stderr | grep err0r > /dev/null"
+      - run: "! ./testfile | tee /dev/stderr | grep -i err0r > /dev/null"
+      - run: "! ./testfile | tee /dev/stderr | grep -i err0r > /dev/null"
+      - run: "! ./testfile | tee /dev/stderr | grep -i err0r > /dev/null"
