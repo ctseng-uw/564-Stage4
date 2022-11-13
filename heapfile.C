@@ -72,6 +72,30 @@ HeapFile::HeapFile(const string& fileName, Status& returnStatus)
     // open the file and read in the header page and the first data page
     if ((status = db.openFile(fileName, filePtr)) == OK)
     {
+        // Read and init all headerPage info
+        // init headerPageNo
+        status = filePtr->getFirstPage(headerPageNo);
+        ASSERT(status == OK);
+        // init headerPage
+        status = bufMgr->readPage(filePtr, headerPageNo, pagePtr);
+        ASSERT(status == OK);
+        headerPage = reinterpret_cast<FileHdrPage*>(pagePtr);
+        // init hdrDirtyFlag
+        hdrDirtyFlag = false;
+
+        // Read and init curPage with the last data page
+        // init curPageNo
+        curPageNo = headerPage->lastPage;
+        // init curPage
+        status = bufMgr->readPage(filePtr, curPageNo, curPage);
+        ASSERT(status == OK);
+        // init curDirtyFlag
+        curDirtyFlag = false;
+        // init curRec
+        curRec = NULLRID;
+
+        returnStatus = OK;
+        return;
     }
     else
     {
