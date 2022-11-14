@@ -321,7 +321,8 @@ const Status HeapFileScan::scanNext(RID& outRid)
 
         }
 
-        // keep looping if next page exists
+        // keep looping if next page exists 
+        // (the status returned by nextRecord is either OK or ENDOFPAGE
         while(curPage->nextRecord(tmpRid,nextRid) == OK){
             tmpRid = nextRid;
 
@@ -337,7 +338,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
 
         }
 
-        // get next page
+        // get next page (get next page will only return OK so no status check is needed)
         curPage->getNextPage(nextPageNo);
 
         // set the getNextPage and startFromFirst flag to true
@@ -345,7 +346,8 @@ const Status HeapFileScan::scanNext(RID& outRid)
         startFromFirst = true;
     }
 
-    return OK; //what happens when no matching happens and the file is scanned until the end?
+    // if no matching record is found, we need to return FILEEOF(according to TA)
+    return FILEEOF;
 }
 
 // returns pointer to the current record.  page is left pinned
