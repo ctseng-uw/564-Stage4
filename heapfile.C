@@ -285,7 +285,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
        
         // load RID based on whether we need to start from the first record
         if (startFromFirst ==false){
-            // if we do need to start from the first record, it means the RID is already stored in curRec
+            // if we do not need to start from the first record, it means the RID is already stored in curRec
             tmpRid = curRec;
         }
         else{
@@ -345,7 +345,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
         startFromFirst = true;
     }
 
-    return OK;
+    return OK; //what happens when no matching happens and the file is scanned until the end?
 }
 
 // returns pointer to the current record.  page is left pinned
