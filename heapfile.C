@@ -262,7 +262,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
         // if the page is currently pinned in the buffer pool, we can directly use it (do not need to do anything)
         // else we have to find a buffer frame for that page and put it inside of the buffer frame and update the
         // current page
-        if (getNextPage == true)
+        if (getNextPage)
         {
 
             // unpin the current page
@@ -288,7 +288,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
         }
 
         // load RID based on whether we need to start from the first record
-        if (startFromFirst == false)
+        if (!startFromFirst)
         {
             // if we do not need to start from the first record, it means the RID is already stored in curRec
             tmpRid = curRec;
@@ -312,7 +312,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
         }
 
         // See if the record related to tempRID should be scanned
-        if (startFromFirst == true)
+        if (startFromFirst)
         {
             // get the record
             status = curPage->getRecord(tmpRid, rec);
@@ -322,7 +322,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
             }
 
             // see if there is a match
-            if (matchRec(rec) == true)
+            if (matchRec(rec))
             {
                 outRid = tmpRid;
                 curRec = tmpRid;
@@ -340,7 +340,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
             status = curPage->getRecord(tmpRid, rec);
 
             // see if there is a match
-            if (matchRec(rec) == true)
+            if (matchRec(rec))
             {
                 outRid = tmpRid;
                 curRec = tmpRid;
