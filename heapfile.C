@@ -338,6 +338,10 @@ const Status HeapFileScan::scanNext(RID& outRid)
 
             // get the record
             status = curPage->getRecord(tmpRid, rec);
+            if (status != OK)
+            {
+                return status;
+            }
 
             // see if there is a match
             if (matchRec(rec))
