@@ -251,7 +251,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
     // see if the current scan is the start of the brand new scan
     // if it is brand new, we should start from the first record
     // i.e. check if (curRec == NULLRID)
-    if (curRec.slotNo == -1 && curRec.pageNo == -1)
+    if (memcmp(&curRec, &NULLRID, sizeof(struct RID)) == 0)
     {
         startFromFirst = true;
     }
@@ -298,7 +298,7 @@ const Status HeapFileScan::scanNext(RID& outRid)
             // else we need to load the RID of the first record on the page
             status = curPage->firstRecord(tmpRid);
             // the error here happens only when there is no record on the current page
-            if (status != OK)
+            if (status == NORECORDS)
             {
                 // get next page
                 curPage->getNextPage(nextPageNo);
