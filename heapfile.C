@@ -243,6 +243,125 @@ const Status HeapFileScan::scanNext(RID& outRid)
     RID tmpRid;
     int nextPageNo;
     Record rec;
+
+    nextPageNo = curPageNo;
+    bool getNextPage = false;    // a variable to see if we need to get next page
+    bool startFromFirst = false; // a variable to see if we need to scan from the start of a page
+
+    // see if the current scan is the start of the brand new scan
+    // if it is brand new, we should start from the first record
+    // i.e. check if (curRec == NULLRID)
+    if (memcmp(&curRec, &NULLRID, sizeof(struct RID)) == 0)
+    {
+        startFromFirst = true;
+    }
+
+    // Loop over the page to read it inside of the buffer pool, if we reach the end of the file, nextPageNo would be -1
+    while (nextPageNo != -1)
+    {
+        // if the page is currently pinned in the buffer pool, we can directly use it (do not need to do anything)
+        // else we have to find a buffer frame for that page and put it inside of the buffer frame and update the
+        // current page
+        if (getNextPage)
+        {
+
+            // unpin the current page
+            status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+            if (status != OK)
+            {
+                return status;
+            }
+
+            // assign new buffer for the new page
+            status = bufMgr->readPage(filePtr, nextPageNo, curPage);
+            if (status != OK)
+            {
+                return status;
+            }
+
+            // update curPage information
+            curDirtyFlag = false;
+            curPageNo = nextPageNo;
+
+            // need to start from the first record because a new page is loaded
+            startFromFirst = true;
+        }
+
+        // load RID based on whether we need to start from the first record
+        if (!startFromFirst)
+        {
+            // if we do not need to start from the first record, it means the RID is already stored in curRec
+            tmpRid = curRec;
+        }
+        else
+        {
+            // else we need to load the RID of the first record on the page
+            status = curPage->firstRecord(tmpRid);
+            // the error here happens only when there is no record on the current page
+            if (status == NORECORDS)
+            {
+                // get next page
+                curPage->getNextPage(nextPageNo);
+
+                // set the getNextPage and startFromFirst flag to true
+                getNextPage = true;
+                startFromFirst = true;
+
+                continue;
+            }
+        }
+
+        // See if the record related to tempRID should be scanned
+        if (startFromFirst)
+        {
+            // get the record
+            status = curPage->getRecord(tmpRid, rec);
+            if (status != OK)
+            {
+                return status;
+            }
+
+            // see if there is a match
+            if (matchRec(rec))
+            {
+                outRid = tmpRid;
+                curRec = tmpRid;
+                return OK;
+            }
+        }
+
+        // keep looping if next page exists
+        // (the status returned by nextRecord is either OK or ENDOFPAGE
+        while (curPage->nextRecord(tmpRid, nextRid) == OK)
+        {
+            tmpRid = nextRid;
+
+            // get the record
+            status = curPage->getRecord(tmpRid, rec);
+            if (status != OK)
+            {
+                return status;
+            }
+
+            // see if there is a match
+            if (matchRec(rec))
+            {
+                outRid = tmpRid;
+                curRec = tmpRid;
+                return OK;
+            }
+        }
+
+        // get next page (get next page will only return OK so no status check is needed)
+        curPage->getNextPage(nextPageNo);
+
+        // set the getNextPage and startFromFirst flag to true
+        getNextPage = true;
+        startFromFirst = true;
+    }
+
+    // if no matching record is found, we need to return FILEEOF(according to TA)
+    return FILEEOF;
 }
 
 // returns pointer to the current record.  page is left pinned
