@@ -152,7 +152,7 @@ const int HeapFile::getRecCnt() const
 const Status HeapFile::getRecord(const RID& rid, Record& rec)
 {
     Status status;
-    
+
     // check if curPageNo equals rid.pageNo
     if (rid.pageNo == curPageNo)
     {
@@ -160,7 +160,7 @@ const Status HeapFile::getRecord(const RID& rid, Record& rec)
         if (status != OK) return status;
         curRec = rid;
         return status;
-    } 
+    }
     // else unpin page currently pinned page
     status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
     if (status != OK) return status;
@@ -519,20 +519,23 @@ const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
 
     // insert record
     status = curPage->insertRecord(rec, outRid);
-    
+
     // if not OK then create new page
     if (status != OK)
     {
         // unpin current page for new page allocation
-        status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
-        if (status != OK) return status;
 
         status = bufMgr->allocPage(filePtr, newPageNo, newPage);
         if (status != OK) return status;
-    
+        newPage->init(newPageNo);
+        headerPage->lastPage = newPageNo;
+        headerPage->pageCnt += 1;
+        curPage->setNextPage(newPageNo);
+        status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+        if (status != OK) return status;
         curPage = newPage;
         curPageNo = newPageNo;
-        // call insert record on new page        
+        // call insert record on new page
         status = curPage->insertRecord(rec, outRid);
         if (status != OK) return status;
     }
