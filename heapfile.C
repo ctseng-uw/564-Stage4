@@ -153,6 +153,31 @@ const Status HeapFile::getRecord(const RID& rid, Record& rec)
 {
     Status status;
 
+    // check if curPageNo equals rid.pageNo
+    if (rid.pageNo == curPageNo)
+    {
+        status = curPage->getRecord(rid, rec);
+        if (status != OK) return status;
+        curRec = rid;
+        return status;
+    }
+    // else unpin page currently pinned page
+    status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+    if (status != OK) return status;
+
+    // read into buffer pool and pin it
+    status = bufMgr->readPage(filePtr, rid.pageNo, curPage);
+    if (status != OK) return status;
+
+    // call getRecord on new curPage
+    status = curPage->getRecord(rid, rec);
+    if (status != OK) return status;
+
+    // set new values for curPage
+    curPageNo = rid.pageNo;
+    curDirtyFlag = false;
+    curRec = rid;
+    return OK;
     // cout<< "getRecord. record (" << rid.pageNo << "." << rid.slotNo << ")" << endl;
 }
 
@@ -475,8 +500,7 @@ const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
 {
     Page* newPage;
     int newPageNo;
-    Status status, unpinstatus;
-    RID rid;
+    Status status;
 
     // check for very large records
     if ((unsigned int)rec.length > PAGESIZE - DPFIXED)
@@ -484,4 +508,38 @@ const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
         // will never fit on a page, so don't even bother looking
         return INVALIDRECLEN;
     }
+    // unpin curPage
+    status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+    if (status != OK) return status;
+
+    // read into buffer
+    status = bufMgr->readPage(filePtr, headerPage->lastPage, curPage);
+    if (status != OK) return status;
+    curPageNo = headerPage->lastPage;
+
+    // insert record
+    status = curPage->insertRecord(rec, outRid);
+
+    // if not OK then create new page
+    if (status != OK)
+    {
+        // unpin current page for new page allocation
+
+        status = bufMgr->allocPage(filePtr, newPageNo, newPage);
+        if (status != OK) return status;
+        newPage->init(newPageNo);
+        headerPage->lastPage = newPageNo;
+        headerPage->pageCnt += 1;
+        curPage->setNextPage(newPageNo);
+        status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+        if (status != OK) return status;
+        curPage = newPage;
+        curPageNo = newPageNo;
+        // call insert record on new page
+        status = curPage->insertRecord(rec, outRid);
+        if (status != OK) return status;
+    }
+    curDirtyFlag = true;
+    curRec = outRid; // not sure if this is needed
+    return OK;
 }
