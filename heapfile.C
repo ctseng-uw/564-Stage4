@@ -499,6 +499,7 @@ InsertFileScan::~InsertFileScan()
 const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
 {
     Page* newPage;
+    int newPageNo;
     Status status;
 
     // check for very large records
@@ -507,19 +508,35 @@ const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
         // will never fit on a page, so don't even bother looking
         return INVALIDRECLEN;
     }
+    // unpin curPage
+    status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+    if (status != OK) return status;
+
+    // read into buffer
+    status = bufMgr->readPage(filePtr, headerPage->lastPage, curPage);
+    if (status != OK) return status;
+    curPageNo = headerPage->lastPage;
 
     // insert record
     status = curPage->insertRecord(rec, outRid);
-
-    // if not then create new page
+    
+    // if not OK then create new page
     if (status != OK)
     {
-        status = bufMgr->allocPage(filePtr, outRid.pageNo, newPage);
+        // unpin current page for new page allocation
+        status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+        if (status != OK) return status;
+
+        status = bufMgr->allocPage(filePtr, newPageNo, newPage);
         if (status != OK) return status;
     
+        curPage = newPage;
+        curPageNo = newPageNo;
         // call insert record on new page        
-        status = newPage->insertRecord(rec, outRid);
+        status = curPage->insertRecord(rec, outRid);
         if (status != OK) return status;
     }
+    curDirtyFlag = true;
+    curRec = outRid; // not sure if this is needed
     return OK;
 }
