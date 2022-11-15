@@ -152,7 +152,32 @@ const int HeapFile::getRecCnt() const
 const Status HeapFile::getRecord(const RID& rid, Record& rec)
 {
     Status status;
+    
+    // check if curPageNo equals rid.pageNo
+    if (rid.pageNo == curPageNo)
+    {
+        status = curPage->getRecord(rid, rec);
+        if (status != OK) return status;
+        curRec = rid;
+        return status;
+    } 
+    // else unpin page currently pinned page
+    status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
+    if (status != OK) return status;
 
+    // read into buffer pool and pin it
+    status = bufMgr->readPage(filePtr, rid.pageNo, curPage);
+    if (status != OK) return status;
+
+    // call getRecord on new curPage
+    status = curPage->getRecord(rid, rec);
+    if (status != OK) return status;
+
+    // set new values for curPage
+    curPageNo = rid.pageNo;
+    curDirtyFlag = false;
+    curRec = rid;
+    return OK;
     // cout<< "getRecord. record (" << rid.pageNo << "." << rid.slotNo << ")" << endl;
 }
 
@@ -474,9 +499,7 @@ InsertFileScan::~InsertFileScan()
 const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
 {
     Page* newPage;
-    int newPageNo;
-    Status status, unpinstatus;
-    RID rid;
+    Status status;
 
     // check for very large records
     if ((unsigned int)rec.length > PAGESIZE - DPFIXED)
@@ -484,4 +507,19 @@ const Status InsertFileScan::insertRecord(const Record& rec, RID& outRid)
         // will never fit on a page, so don't even bother looking
         return INVALIDRECLEN;
     }
+
+    // insert record
+    status = curPage->insertRecord(rec, outRid);
+
+    // if not then create new page
+    if (status != OK)
+    {
+        status = bufMgr->allocPage(filePtr, outRid.pageNo, newPage);
+        if (status != OK) return status;
+    
+        // call insert record on new page        
+        status = newPage->insertRecord(rec, outRid);
+        if (status != OK) return status;
+    }
+    return OK;
 }
