@@ -485,10 +485,10 @@ InsertFileScan::InsertFileScan(const string& name, Status& status) : HeapFile(na
     if ((curPage != NULL) && (curPageNo != headerPage->lastPage))
     {
         status = bufMgr->unPinPage(filePtr, curPageNo, curDirtyFlag);
-        if (status != OK) cerr << "error in unpin of data page\n"; 
+        if (status != OK) cerr << "error in unpin of data page\n";
         curPageNo = headerPage->lastPage;
         status = bufMgr->readPage(filePtr, curPageNo, curPage);
-        if (status != OK) cerr << "error in readPage \n"; 
+        if (status != OK) cerr << "error in readPage \n";
         curDirtyFlag = false;
     }
 }
